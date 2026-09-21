@@ -490,6 +490,74 @@
   .form-note { font-size: 0.78rem; color: rgba(245,240,234,0.6); margin: 0.4rem 0 1.1rem; }
   .form-submit { border: none; cursor: pointer; width: 100%; font-size: 0.95rem; padding: 0.9rem; }
   .form-status { margin-top: 0.8rem; font-size: 0.88rem; min-height: 1.2em; }
+
+  /* ===== Thank-you popup (shown after a successful inquiry submit) ===== */
+  .thanks-overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.2rem;
+    background: rgba(42,26,32,0.72);
+    z-index: 2000;
+  }
+  .thanks-overlay.open { display: flex; animation: thanksFade 0.25s ease; }
+  .thanks-card {
+    position: relative;
+    background: #F5F0EA;
+    border-radius: 4px;
+    max-width: 420px;
+    width: 100%;
+    padding: 2.9rem 2.2rem 2.4rem;
+    text-align: center;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+    animation: thanksRise 0.3s ease;
+  }
+  .thanks-card::after {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    border: 1px solid #C9A15A;
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .thanks-icon { display: block; margin: 0 auto 1.1rem; }
+  .thanks-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1.15;
+    color: #5A1E30;
+    margin: 0 0 0.7rem;
+  }
+  .thanks-text {
+    font-family: 'Jost', sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: #4A3238;
+    margin: 0 0 1.7rem;
+  }
+  .thanks-close {
+    font-family: 'Jost', sans-serif;
+    background: #5A1E30;
+    color: #F5F0EA;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.75rem 2.2rem;
+    transition: background 0.2s ease;
+  }
+  .thanks-close:hover { background: #4A1626; }
+  @keyframes thanksFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes thanksRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 600px) {
+    .thanks-card { padding: 2.4rem 1.5rem 2rem; }
+    .thanks-title { font-size: 1.75rem; }
+  }
 </style>
 </head>
 <body>
@@ -801,11 +869,63 @@
   </div>
 </footer>
 
+<!-- Thank-you popup: filled in and opened by submitInquiry() -->
+<div class="thanks-overlay" id="thanks-overlay" role="dialog" aria-modal="true" aria-labelledby="thanks-title" onclick="if (event.target === this) closeThanks()">
+  <div class="thanks-card">
+    <svg class="thanks-icon" width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+      <circle cx="28" cy="28" r="26" stroke="#C9A15A" stroke-width="1.5"/>
+      <path d="M17.5 28.5L24.5 35.5L38.5 21.5" stroke="#C9A15A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h3 class="thanks-title" id="thanks-title">Thank you!</h3>
+    <p class="thanks-text" id="thanks-text">We&#39;ve received your inquiry and will be in touch within a day.</p>
+    <button type="button" class="thanks-close" id="thanks-close" onclick="closeThanks()">Close</button>
+  </div>
+</div>
+
 <script>
 function prefillPackage(name) {
   var sel = document.getElementById('f-package');
   if (sel) { sel.value = name; }
 }
+var THANKS_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var THANKS_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// Parse the YYYY-MM-DD value by hand: new Date('2026-10-18') is parsed as UTC
+// and can display as the previous day west of Greenwich.
+function formatEventDate(value) {
+  if (!value) { return ''; }
+  var parts = String(value).split('-');
+  if (parts.length !== 3) { return ''; }
+  var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  if (!y || !m || !d) { return ''; }
+  var local = new Date(y, m - 1, d);
+  return THANKS_DAYS[local.getDay()] + ', ' + THANKS_MONTHS[m - 1] + ' ' + d;
+}
+
+function openThanks(firstName, eventDate) {
+  var overlay = document.getElementById('thanks-overlay');
+  var title = document.getElementById('thanks-title');
+  var text = document.getElementById('thanks-text');
+  title.textContent = firstName ? 'Thank you, ' + firstName + '!' : 'Thank you!';
+  text.textContent = eventDate
+    ? "We've received your inquiry for " + eventDate + ' and will be in touch within a day.'
+    : "We've received your inquiry and will be in touch within a day.";
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', thanksKeyHandler);
+  document.getElementById('thanks-close').focus();
+}
+
+function closeThanks() {
+  document.getElementById('thanks-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', thanksKeyHandler);
+}
+
+function thanksKeyHandler(e) {
+  if (e.key === 'Escape' || e.keyCode === 27) { closeThanks(); }
+}
+
 function submitInquiry(e) {
   e.preventDefault();
   var form = document.getElementById('inquiry-form');
@@ -814,6 +934,11 @@ function submitInquiry(e) {
   var data = new FormData(form);
   // So hitting Reply on the notification email goes to the customer, not Web3Forms
   data.set('replyto', document.getElementById('f-email').value);
+
+  // Read these before form.reset() clears the fields
+  var fullName = (document.getElementById('f-name').value || '').trim();
+  var firstName = fullName ? fullName.split(/\s+/)[0] : '';
+  var eventDate = formatEventDate(document.getElementById('f-date').value);
   btn.disabled = true;
   btn.textContent = 'Sending...';
   statusEl.textContent = '';
@@ -824,9 +949,9 @@ function submitInquiry(e) {
   }).then(function(res) { return res.json(); })
     .then(function(json) {
       if (json.success) {
-        statusEl.textContent = "Thank you! We'll be in touch within a day.";
-        statusEl.style.color = '#C9A15A';
+        statusEl.textContent = '';
         form.reset();
+        openThanks(firstName, eventDate);
       } else {
         statusEl.textContent = 'Something went wrong — please email info@studiolumiere.co directly.';
         statusEl.style.color = '#F5F0EA';
