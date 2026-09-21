@@ -904,7 +904,8 @@ function formatEventDate(iso) {
 function openThanks(firstName, eventDate) {
   var title = document.getElementById('thanks-title');
   var msg = document.getElementById('thanks-message');
-  title.textContent = firstName ? 'Thank you, ' + firstName + '!' : 'Thank you!';
+  var displayName = firstName ? firstName.charAt(0).toUpperCase() + firstName.slice(1) : '';
+  title.textContent = displayName ? 'Thank you, ' + displayName + '!' : 'Thank you!';
   var when = formatEventDate(eventDate);
   msg.textContent = when
     ? "We've received your inquiry for " + when + " and will be in touch within a day."
@@ -951,8 +952,6 @@ function submitInquiry(e) {
         var fullName = (document.getElementById('f-name').value || '').trim();
         var firstName = fullName.split(/\s+/)[0] || '';
         var eventDate = document.getElementById('f-date').value;
-        statusEl.textContent = "Thank you! We'll be in touch within a day.";
-        statusEl.style.color = '#C9A15A';
         form.reset();
         openThanks(firstName, eventDate);
       } else {
